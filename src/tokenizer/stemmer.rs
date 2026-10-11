@@ -27,6 +27,7 @@ pub enum Language {
     French,
     German,
     Greek,
+    Hindi,
     Hungarian,
     Italian,
     Norwegian,
@@ -58,6 +59,7 @@ impl Language {
             French => StemmerAlgorithm::Frostem(Algorithm::French),
             German => StemmerAlgorithm::Frostem(Algorithm::German),
             Greek => StemmerAlgorithm::Frostem(Algorithm::Greek),
+            Hindi => StemmerAlgorithm::Frostem(Algorithm::Hindi),
             Hungarian => StemmerAlgorithm::Frostem(Algorithm::Hungarian),
             Italian => StemmerAlgorithm::Frostem(Algorithm::Italian),
             Norwegian => StemmerAlgorithm::Frostem(Algorithm::Norwegian),
@@ -177,7 +179,9 @@ mod tests {
 
     use super::*;
     use crate::tokenizer::tests::assert_token;
-    use crate::tokenizer::{LowerCaser, SimpleTokenizer, TextAnalyzer, TokenizerManager};
+    use crate::tokenizer::{
+        LowerCaser, SimpleTokenizer, TextAnalyzer, TokenizerManager, WhitespaceTokenizer,
+    };
 
     #[test]
     fn test_en_stem() {
@@ -225,5 +229,29 @@ mod tests {
         assert_token(&tokens[0], 0, "καλημερ", 0, 16);
         assert_token(&tokens[1], 1, "χαρουμεν", 18, 36);
         assert_token(&tokens[2], 2, "φορολογουμεν", 37, 63);
+    }
+
+    #[test]
+    fn test_hi_stem() {
+        // `SimpleTokenizer` splits Devanagari at the nukta and virama, which are not
+        // alphanumeric, so split on whitespace to hand the stemmer whole words.
+        let mut hi_tokenizer = TextAnalyzer::builder(WhitespaceTokenizer::default())
+            .filter(LowerCaser)
+            .filter(Stemmer::new(Language::Hindi))
+            .build();
+        let mut tokens: Vec<Token> = vec![];
+        {
+            let mut add_token = |token: &Token| {
+                tokens.push(token.clone());
+            };
+            hi_tokenizer
+                .token_stream("लड़कों किताबें खेलते")
+                .process(&mut add_token);
+        }
+
+        assert_eq!(tokens.len(), 3);
+        assert_token(&tokens[0], 0, "लड़क", 0, 18);
+        assert_token(&tokens[1], 1, "किताब", 19, 40);
+        assert_token(&tokens[2], 2, "खेल", 41, 56);
     }
 }
